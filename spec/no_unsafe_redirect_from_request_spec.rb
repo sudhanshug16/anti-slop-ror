@@ -8,6 +8,13 @@ RSpec.describe RuboCop::Cop::AntiSlop::NoUnsafeRedirectFromRequest do
     RUBY
   end
 
+  it "flags request controlled external redirects through safe navigation" do
+    expect_offense(<<~RUBY)
+      controller&.redirect_to(params[:next], allow_other_host: true)
+                              ^^^^^^^^^^^^^ AntiSlop/NoUnsafeRedirectFromRequest: Do not redirect to a request-controlled target with allow_other_host: true.
+    RUBY
+  end
+
   it "flags literal keyword splats" do
     expect_offense(<<~RUBY)
       redirect_to params[:next], **{allow_other_host: true}

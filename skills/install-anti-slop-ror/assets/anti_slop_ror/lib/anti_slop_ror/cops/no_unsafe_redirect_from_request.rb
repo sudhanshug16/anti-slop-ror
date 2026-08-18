@@ -14,6 +14,8 @@ module RuboCop
           add_offense(target)
         end
 
+        alias_method :on_csend, :on_send
+
         private
 
         def allow_other_host?(hash)
