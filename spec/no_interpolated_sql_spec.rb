@@ -8,6 +8,13 @@ RSpec.describe RuboCop::Cop::AntiSlop::NoInterpolatedSql do
     RUBY
   end
 
+  it "flags constructed SQL through safe navigation" do
+    expect_offense(<<~RUBY)
+      User&.where("name = '\#{params[:name]}'")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^ AntiSlop/NoInterpolatedSql: Do not build SQL with interpolation or string concatenation. Use binds or sanitization.
+    RUBY
+  end
+
   it "allows literals, hashes, binds, and sanitized arrays" do
     expect_no_offenses("User.where(name: params[:name])")
     expect_no_offenses("User.where('name = ?', params[:name])")

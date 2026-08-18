@@ -9,5 +9,4 @@ jobs:
         with:
           ruby-version: "3.3"
           bundler-cache: true
-      - run: bin/sync-skill-assets
       - run: bin/check

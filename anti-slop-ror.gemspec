@@ -4,6 +4,8 @@ Gem::Specification.new do |spec|
   spec.summary = "Focused, no-autocorrect Rails safety cops"
   spec.authors = ["Anti Slop contributors"]
   spec.license = "MIT"
+  spec.homepage = "https://github.com/sudhanshugautam/anti-slop-ror"
+  spec.metadata = {"default_lint_roller_plugin" => "AntiSlopRor::Plugin"}
   spec.required_ruby_version = ">= 3.2"
   spec.files = Dir["lib/**/*", "config/**/*", "LICENSE", "README.md"]
   spec.add_dependency "lint_roller", ">= 1.1"

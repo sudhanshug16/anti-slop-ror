@@ -17,7 +17,10 @@ module RuboCop
         private
 
         def allow_other_host?(hash)
-          pair = hash.pairs.find { |item| item.key.sym_type? && item.key.value == :allow_other_host }
+          pairs = hash.children.flat_map do |item|
+            (item.kwsplat_type? && item.children.first&.hash_type?) ? item.children.first.pairs : [item]
+          end
+          pair = pairs.find { |item| item.pair_type? && item.key.sym_type? && item.key.value == :allow_other_host }
           pair&.value&.true_type?
         end
       end

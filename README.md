@@ -4,7 +4,7 @@ Focused, no-autocorrect RuboCop cops for Rails code where a locally plausible ch
 
 ## Installation
 
-Gem users can add `gem "anti-slop-ror"` and configure the plugin normally. To vendor it, run `ruby scripts/install.rb /path/to/app`, add the exact printed `.standard.yml` block, and run `bundle exec standardrb --raise-cop-error`. Vendored installations are snapshots: rerun the installer to update them.
+Gem users can add `gem "anti-slop-ror"` and configure StandardRB with `plugins: [anti-slop-ror]`. To vendor it, run `ruby scripts/install.rb /path/to/app`, add the exact printed `.standard.yml` block, and run `bundle exec standardrb --raise-cop-error`. Vendored installations are snapshots: rerun the installer to update them. The installer refuses to replace `tools/anti_slop_ror`; use `--force` only when intentionally replacing that snapshot.
 
 | Cop | Rejects |
 | --- | --- |
@@ -19,9 +19,9 @@ There is **no autocorrect**: each finding needs a human decision.
 
 ## Limitations
 
-The cops are AST-local. They do not follow aliases, prove routes or schemas, understand runtime SQL, or replace tests. A closed constant mapping such as `HANDLERS.fetch(params[:kind])` is intentionally permitted before dispatch. Constant-only SQL interpolation is reported because the linter cannot establish its value safely; suppress locally when reviewed.
+The cops are AST-local. They do not follow aliases, prove routes or schemas, understand runtime SQL, or replace tests. A closed constant mapping such as `handler.public_send(HANDLERS.fetch(params[:kind]))` is intentionally permitted before dispatch. A variable kwsplat such as `**options` is not evaluated for redirect safety. Constant-only SQL interpolation is reported because the linter cannot establish its value safely; suppress locally when reviewed.
 
-This does not duplicate RuboCop `Lint/SuppressedException`, Rails transaction/nonlocal-exit and model-validation cops, RSpec verified-double checks, or Brakeman. Those are existing-tool coverage or backlog decisions.
+StandardRB configures `Lint/SuppressedException` differently, so this cop intentionally tightens its silent-rescue boundary there. Plain RuboCop users may see overlap with that built-in cop. Rails transaction/nonlocal-exit and model-validation cops, RSpec verified-double checks, and Brakeman remain existing-tool coverage or backlog decisions.
 
 ## Development
 

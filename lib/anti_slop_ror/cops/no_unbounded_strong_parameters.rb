@@ -19,6 +19,8 @@ module RuboCop
           end
         end
 
+        alias_method :on_csend, :on_send
+
         private
 
         def allowed_key?(key)

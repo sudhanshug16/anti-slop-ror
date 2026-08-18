@@ -3,11 +3,15 @@
 
 require "fileutils"
 
-target = ARGV.fetch(0) { abort "usage: #{$PROGRAM_NAME} TARGET" }
+force = ARGV.delete("--force")
+abort "usage: #{$PROGRAM_NAME} [--force] TARGET" unless ARGV.one?
+target = File.expand_path(ARGV.first)
+abort "target must be an existing directory: #{target}" unless File.directory?(target)
 source = File.expand_path("../skills/install-anti-slop-ror/assets/anti_slop_ror", __dir__)
-destination = File.join(File.expand_path(target), "tools/anti_slop_ror")
-abort "refusing to overwrite existing #{destination}" if File.exist?(destination)
+destination = File.join(target, "tools/anti_slop_ror")
+abort "refusing to overwrite existing #{destination}; rerun with --force to replace this snapshot" if File.exist?(destination) && !force
 FileUtils.mkdir_p(File.dirname(destination))
+FileUtils.rm_rf(destination) if File.exist?(destination)
 FileUtils.cp_r(source, destination)
 puts "Installed snapshot to #{destination}"
 puts <<~YAML

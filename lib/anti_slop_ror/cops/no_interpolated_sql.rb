@@ -12,6 +12,8 @@ module RuboCop
           add_offense(sql) if dynamic_sql?(sql)
         end
 
+        alias_method :on_csend, :on_send
+
         private
 
         def arel_sql?(node)

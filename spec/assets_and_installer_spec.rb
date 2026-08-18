@@ -1,13 +1,12 @@
 require "spec_helper"
 require "fileutils"
-require "open3"
 require "tmpdir"
 
 RSpec.describe "vendored assets" do
   let(:root) { File.expand_path("..", __dir__) }
 
   it "has no asset drift" do
-    expect(system({"BUNDLE_GEMFILE" => File.join(root, "Gemfile")}, "ruby", "scripts/sync_skill_assets.rb", "--check", chdir: root)).to be(true)
+    expect(system("ruby", "scripts/sync_skill_assets.rb", "--check", chdir: root)).to be(true)
   end
 
   it "installs an isolated snapshot without changing project configuration" do
@@ -22,30 +21,20 @@ RSpec.describe "vendored assets" do
     end
   end
 
-  it "loads the vendored plugin through StandardRB" do
+  it "refuses an existing snapshot unless force is explicit" do
     Dir.mktmpdir do |target|
       install_snapshot(target)
-      File.write(File.join(target, ".standard.yml"), standard_plugin_config)
-      File.write(File.join(target, "clean.rb"), "User.where(name: params[:name])\n")
-      File.write(File.join(target, "violation.rb"), "User.where(\"name = '\#{params[:name]}'\")\n")
-      environment = {"BUNDLE_GEMFILE" => File.join(root, "Gemfile")}
-      expect(system(environment, "bundle", "exec", "standardrb", "--config", ".standard.yml", "--raise-cop-error", "clean.rb", chdir: target)).to be(true)
-      output, status = Open3.capture2e(environment, "bundle", "exec", "standardrb", "--config", ".standard.yml", "--raise-cop-error", "violation.rb", chdir: target)
-      expect(status.success?).to be(false)
-      expect(output).to include("AntiSlop/NoInterpolatedSql")
+      expect(system("ruby", File.join(root, "scripts/install.rb"), target)).to be(false)
+      expect(system("ruby", File.join(root, "scripts/install.rb"), "--force", target)).to be(true)
     end
+  end
+
+  it "rejects a missing target directory" do
+    missing = File.join(Dir.mktmpdir, "missing")
+    expect(system("ruby", File.join(root, "scripts/install.rb"), missing)).to be(false)
   end
 
   def install_snapshot(target)
     expect(system("ruby", File.join(root, "scripts/install.rb"), target)).to be(true)
-  end
-
-  def standard_plugin_config
-    <<~YAML
-      plugins:
-        - anti_slop_ror:
-            require_path: tools/anti_slop_ror/lib/anti_slop_ror/plugin
-            plugin_class_name: AntiSlopRor::Plugin
-    YAML
   end
 end

@@ -3,3 +3,4 @@ set -eu
 bundle exec standardrb --raise-cop-error
 bundle exec rspec
 bin/sync-skill-assets --check
+ruby scripts/smoke_consumers.rb

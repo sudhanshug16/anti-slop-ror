@@ -14,6 +14,8 @@ module RuboCop
           add_offense(name)
         end
 
+        alias_method :on_csend, :on_send
+
         private
 
         def closed_mapping_lookup?(node)
