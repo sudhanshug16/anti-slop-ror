@@ -1,0 +1,15 @@
+require "spec_helper"
+
+RSpec.describe RuboCop::Cop::AntiSlop::NoUnsafeRedirectFromRequest do
+  it "flags request controlled external redirects" do
+    expect_offense(<<~RUBY)
+      redirect_to params[:next], allow_other_host: true
+                  ^^^^^^^^^^^^^ AntiSlop/NoUnsafeRedirectFromRequest: Do not redirect to a request-controlled target with allow_other_host: true.
+    RUBY
+  end
+
+  it "allows literals and url_from" do
+    expect_no_offenses("redirect_to 'https://example.test', allow_other_host: true")
+    expect_no_offenses("redirect_to url_from(params[:next]), allow_other_host: true")
+  end
+end

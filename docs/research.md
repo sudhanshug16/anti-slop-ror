@@ -1,0 +1,7 @@
+# Research basis
+
+[Agents on Rails](https://github.com/rails/ai-evals) evaluates agents on 21 atomic tasks against Writebook. Its grading restores protected surfaces, runs application tests, and runs hidden behavioral checks; it also measures Rails API recall separately. The [first public report](https://railsai.org/research) reports intended Rails API recall of 8–35%; runs that recalled the API solved 92%, hand-rolled runs 87%, and runs that found but ignored it solved 64%.
+
+This project treats that as a design signal, not a claim that linting proves correctness. Benchmark-inspired tasks include unsafe `allow_other_host` redirects, interpolated SQL and LIKE sanitization, nested-resource scoping, transaction nonlocal exit, cache-key dimensions, and job enqueue timing. Only the local AST shapes suitable for a generic cop ship here. Scoping, cache dimensions, enqueue timing, schemas, routes, and behavioral tests remain research backlog.
+
+Primary references: [Rails security guide](https://guides.rubyonrails.org/security.html), [Rails Active Record transactions](https://api.rubyonrails.org/classes/ActiveRecord/Transactions/ClassMethods.html), [StandardRB](https://github.com/standardrb/standard), [lint_roller](https://github.com/standardrb/lint_roller), [RuboCop](https://docs.rubocop.org/rubocop/), [RuboCop Rails](https://docs.rubocop.org/rubocop-rails/), and [Brakeman warning types](https://brakemanscanner.org/docs/warning_types/).

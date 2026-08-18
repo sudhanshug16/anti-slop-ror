@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+exec ruby "$(dirname "$0")/../scripts/sync_skill_assets.rb" "$@"

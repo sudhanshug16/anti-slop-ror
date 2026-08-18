@@ -1,0 +1,21 @@
+AllCops:
+  TargetRubyVersion: 3.2
+  NewCops: enable
+  Exclude:
+    - "db/migrate/**/*"
+    - "db/schema.rb"
+    - "vendor/**/*"
+    - "skills/**/assets/**/*"
+AntiSlop/NoSilentRescue:
+  Enabled: true
+AntiSlop/NoRequestDrivenDynamicDispatch:
+  Enabled: true
+AntiSlop/NoUnsafeRedirectFromRequest:
+  Enabled: true
+AntiSlop/NoUnboundedStrongParameters:
+  Enabled: true
+  AllowedKeys: []
+AntiSlop/NoInterpolatedSql:
+  Enabled: true
+AntiSlop/NoRescueStatementInvalidInTransaction:
+  Enabled: true

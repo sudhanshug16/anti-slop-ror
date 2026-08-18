@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -eu
+bundle exec standardrb --raise-cop-error
+bundle exec rspec
+bin/sync-skill-assets --check
