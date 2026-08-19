@@ -174,16 +174,21 @@ footgun.
   that calls an external API, sends mail, or performs a non-DB write. It belongs in `after_commit` instead
   — the guide notes these callbacks exist because models "need to interact with external systems that are
   not part of the database transaction." For anything delivery-critical, check further: is the effect
-  itself durable (a durable outbox row, or a queued job written via `enqueue_after_transaction_commit` —
-  see [§8](#8-background-job-enqueue-timing-retries-and-argument-durability) — rather than a synchronous
-  call inside the callback), does it have a retry policy, and is it idempotent/deduplicated so a retry
-  can't double-fire it?
+  represented by an outbox record written atomically inside the *same* DB transaction as the triggering
+  change (durable), or does it rely only on enqueuing a job from `after_commit`/
+  `enqueue_after_transaction_commit` (see [§8](#8-background-job-enqueue-timing-retries-and-argument-durability))?
+  `enqueue_after_transaction_commit` gives correct *ordering* relative to rollback — it does not give
+  atomic durability, because the process can still crash in the window between the commit and the enqueue
+  call, silently dropping the job. Is there a worker that retries the effect, and is it
+  idempotent/deduplicated so a retry can't double-fire it?
 - **What proves safety:** For rollback-consistency: the side effect is in `after_commit` (or triggered
   after the transaction block exits successfully), and a test that forces a rollback mid-transaction and
   asserts the external effect did *not* fire. That test proves rollback-safety only — treat it as
-  incomplete evidence, not a full verdict. For delivery-critical effects, additionally require evidence of
-  a durable outbox or durable post-commit job, a retry policy, and an idempotency/deduplication key —
-  without that evidence, disclose durability as unverified rather than asserting the effect is safe.
+  incomplete evidence, not a full verdict. For delivery-critical effects, proof requires an outbox record
+  persisted atomically in the same DB transaction as the triggering change, then retried by a worker with
+  idempotency/deduplication. A post-commit job enqueue on its own — including one issued via
+  `enqueue_after_transaction_commit` — is not sufficient evidence of durability: disclose the
+  commit-to-enqueue crash window it still leaves open rather than asserting the effect is safe.
 - **Statically lintable:** No cop in this project or RuboCop Rails flags "external call inside
   transaction" generically — it requires knowing which calls are external, which isn't visible to AST-only
   analysis. RuboCop Rails ships the related-but-distinct `Rails/TransactionExitStatement` for
