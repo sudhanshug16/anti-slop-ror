@@ -1,15 +1,22 @@
 ---
 name: install-anti-slop-ror
-description: Install and run the anti-slop-ror StandardRB/RuboCop plugin (six AST cops for Ruby on Rails), then orchestrate the project's own Rails safety tools and a semantic review pass to audit AI- or agent-generated Ruby/Rails diffs for slop that linters cannot prove. Use when (1) installing, updating, or vendoring the anti-slop-ror plugin into a Rails repo, (2) reviewing, auditing, or approving an AI agent's Ruby/Rails changes before merge, (3) checking whether a Rails diff introduced silent state loss, untested integration boundaries, weakened CI/security guardrails, or other slop the AST cops cannot catch, or (4) deciding whether a Rails PR is safe to ship.
+description: Two independent uses — install/vendor the anti-slop-ror StandardRB/RuboCop plugin (six AST cops for Ruby on Rails) into a Rails repo, or audit/review AI- or agent-generated Ruby/Rails diffs for slop by running the target repo's own existing Rails safety tools (StandardRB, rubocop-rails/standard-rails, Brakeman, tests) read-only and doing a semantic review pass for boundaries no AST cop can prove — reviewing does not require installing the plugin first. Use when (1) installing, updating, or vendoring the anti-slop-ror plugin into a Rails repo, (2) reviewing, auditing, or approving an AI agent's Ruby/Rails changes before merge, (3) checking whether a Rails diff introduced silent state loss, untested integration boundaries, weakened CI/security guardrails, or other slop the AST cops cannot catch, or (4) deciding whether a Rails PR is safe to ship.
 ---
 
 # Anti-slop Rails workflow
 
-Three layers, run in order. Layer 1 is a narrow, reliable AST lint pass — it is not a complete Rails
-safety net. Layers 2 and 3 exist because most high-value Rails failures are semantic, repo-specific, or
-runtime, not syntactic; do not skip them when the task is "review this Rails diff."
+Two modes. Pick the one the user actually asked for — do not assume one implies the other, and if the
+request is ambiguous, ask rather than defaulting to installing.
 
-## Layer 1 — install and run the custom cops
+- **Review/audit mode** — reviewing, auditing, or approving a Rails diff/PR, or deciding if it's safe to
+  ship. Read-only against the target repo: inspect existing configuration and run existing commands only.
+  Never run the installer, never add or edit a dependency, `.standard.yml`/`.rubocop.yml` entry, or any
+  other file in the target repo. If the anti-slop-ror cops aren't already installed there, report that as
+  a coverage gap in your verdict — do not install them to close it.
+- **Install/setup mode** — installing, vendoring, updating, or configuring the anti-slop-ror plugin, or
+  the user explicitly asked for both. May run the installer and make the requested integration changes.
+
+## Install/setup mode — Layer 1
 
 The six cops are AST-local, no-autocorrect, and catch narrow, high-confidence anti-patterns: silent
 rescue, request-driven dynamic dispatch, unsafe request-controlled redirects, unbounded strong
@@ -26,29 +33,47 @@ parameters, interpolated SQL, and swallowed `StatementInvalid` inside a transact
    understanding why the cop fired (see `docs/rule-design.md` in this repo for each cop's intentional
    boundaries).
 
-This layer alone does not establish that a Rails diff is safe. Continue to Layer 2.
+Installing does not substitute for a review: it only adds these six cops to the target's own lint run.
+If the user also wants their diff reviewed, continue into review/audit mode below.
 
-## Layer 2 — run the target repo's own Rails safety tools
+## Review/audit mode
 
-Discover what the *target* project already has, run it, and report gaps honestly. Never claim a tool
-passed if it wasn't run, and never install a new dependency into the target project to close a gap
-unless the user explicitly asked for that — this skill orchestrates existing tooling, it does not expand
-the target's dependency surface.
+Everything here runs read-only against the target repo: run its existing commands, inspect its existing
+configuration, do not add tooling or config to close a gap you find.
 
-1. Inspect the target's `Gemfile`/`Gemfile.lock` (or `bundle list`) for: `standard` / `rubocop`,
-   `standard-rails` / `rubocop-rails`, `brakeman`, and a test framework (RSpec/Minitest).
-2. For each tool present, run its normal blocking invocation, e.g.:
-   - `bundle exec standardrb --raise-cop-error` (covers `rubocop-rails`/`standard-rails` cops too, if
-     configured — includes cops like `Rails/UniqueValidationWithoutIndex`,
-     `Rails/TransactionExitStatement`, `Rails/SkipsModelValidations`, and `Rails/SaveBang`).
-   - `bundle exec brakeman` (or the project's documented invocation).
-   - The project's test command (e.g. `bundle exec rspec`, `bin/rails test`).
-3. For each tool *absent*, state that plainly in your verdict: "Brakeman is not installed in this repo;
-   its security categories were not checked." Do not imply security/lint coverage that didn't run.
-4. If tests fail or a tool reports findings, that is part of your verdict — do not treat Layer 1 passing
-   as sufficient when Layer 2 tooling exists and wasn't clean.
+### Layer 2 — existing-tool coverage: check before you trust it
 
-## Layer 3 — semantic and repo-boundary review
+A tool being present, a command being runnable, or a clean/passing run does **not** by itself prove a
+specific named cop was enabled and applicable to this target — check the *effective* configuration, not
+just presence.
+
+1. Inspect the target's `Gemfile`/`Gemfile.lock` (or `bundle list`) for: `standard`/`rubocop`,
+   `standard-rails`/`rubocop-rails`, `brakeman`, and a test framework (RSpec/Minitest). Separately check
+   whether `.standard.yml`/`.rubocop.yml` already has the `anti_slop_ror` plugin block — if not, that is
+   itself a Layer-1 coverage gap to report, not something to add here.
+2. For each tool present, run its existing blocking invocation as already configured — do not add flags
+   or config it doesn't already have: `bundle exec standardrb --raise-cop-error` (or `rubocop`),
+   `bundle exec brakeman` (or the project's documented invocation), the project's test command.
+3. Before crediting a specific `rubocop-rails` cop's coverage in your verdict, check whether it's actually
+   enabled and applicable — inspect the merged `.rubocop.yml`/`.standard.yml` (or
+   `bundle exec rubocop --show-cops Rails/<Cop>`) and the target's Rails version. In particular:
+   - `Rails/SaveBang` and `Rails/SkipsModelValidations` are disabled (`Enabled: false`) by the
+     `standard-rails` baseline even though `rubocop-rails` ships both — a clean StandardRB run under
+     `standard-rails` proves nothing about either unless the target re-enabled them.
+   - `Rails/TransactionExitStatement` is a "pending" cop (off by default in plain `rubocop-rails` unless
+     `NewCops: enable`, though `standard-rails` does enable it); even when enabled, the cop is a no-op on
+     Rails >= 7.2 and version-config-gated on Rails 7.1 — check the target's Rails version before
+     crediting it.
+   - `Rails/UniqueValidationWithoutIndex` requires `db/schema.rb` to exist and only scans
+     `app/models/**/*.rb` by default.
+   Only credit a named cop's coverage if you've confirmed it's enabled and applicable to this target;
+   otherwise report it as missing, disabled, or unverified — never as passing.
+4. State every gap plainly in your verdict: absent tools, absent anti-slop-ror install, and disabled or
+   unverified named cops. Example: "Rails/SaveBang is disabled under this repo's standard-rails baseline;
+   unchecked `save`/`update` calls in this diff were not caught by a cop." If tests fail or a tool reports
+   findings, that's part of your verdict too.
+
+### Layer 3 — semantic and repo-boundary review
 
 Read `references/rails-review.md` for the twelve failure categories no AST cop can prove: process-local
 singleton/global state, unbounded session/cookie/cache state, fake/stub contract drift, stored-but-unused
@@ -65,22 +90,25 @@ For every review:
 2. **Write or run a focused behavioral test per suspected hazard**, not a broad regression sweep. Match
    the test to the failure mode in `rails-review.md` — e.g., for stored-but-unreplayed state, perform the
    action twice and assert the *second* request sees the first's state; for a transaction/external-effect
-   hazard, force a rollback and assert the side effect didn't fire. A test that only exercises the happy
-   path once proves nothing about these categories.
-3. **Give an evidence-backed verdict.** State what you ran (Layers 1 and 2 commands, their results) and
-   what you inspected or tested in Layer 3, with concrete file:line references — not "looks fine" or
-   "should be safe."
-4. **Disclose what you did not check.** List: any Layer 2 tool that was absent and not run, any
-   `rails-review.md` category you judged out of scope for this diff and why, and any hazard you noticed
-   but couldn't verify (e.g., "multi-worker behavior is unverified — the test suite runs single-process").
-   A verdict without this disclosure is incomplete; the human reviewer needs to know the residual risk,
-   not just the parts that were checked.
+   hazard, force a rollback and assert the side effect didn't fire. A rollback test proves the effect is
+   rollback-safe, not that it's durable or exactly-once — see `rails-review.md` §6 for what delivery
+   guarantees still need separate evidence. A test that only exercises the happy path once proves nothing
+   about these categories.
+3. **Give an evidence-backed verdict.** State what you ran (Layer 2 commands and results, including which
+   named cops you confirmed enabled vs. disabled/unverified) and what you inspected or tested in Layer 3,
+   with concrete file:line references — not "looks fine" or "should be safe."
+4. **Disclose what you did not check.** List: any Layer 1/2 tool or cop that was absent, disabled, or
+   unverified, any `rails-review.md` category you judged out of scope for this diff and why, and any
+   hazard you noticed but couldn't verify (e.g., "multi-worker behavior is unverified — the test suite
+   runs single-process"). A verdict without this disclosure is incomplete; the human reviewer needs to
+   know the residual risk, not just the parts that were checked.
 
 ## Notes
 
 - The six cops are the reliable default, not a full Rails-slop catalog — see this repo's `README.md` and
-  `docs/research.md` for why the cop count stays small instead of absorbing coverage `rubocop-rails` and
-  Brakeman already provide.
+  `docs/research.md` for why the cop count stays small instead of duplicating checks `rubocop-rails` and
+  Brakeman *can* provide when their cops are actually enabled for the target (see Layer 2 above — presence
+  of the gem is not the same as active coverage).
 - Layer 3's categories are labeled in `rails-review.md` as either evidenced directly by the [LLM Coding
   Benchmark's success report](https://github.com/akitaonrails/llm-coding-benchmark/blob/master/docs/success_report.md)
   or as general Rails hazards from framework/tooling documentation — that benchmark is one report on one

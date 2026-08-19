@@ -160,18 +160,35 @@ footgun.
   effect raises, Rails' guide is explicit that "the exception will bubble up and any remaining
   `after_commit` or `after_rollback` methods will not be executed" when misplaced, and pre-commit
   exceptions abort the save. Both directions produce state that's inconsistent between the DB and the
-  outside world with no automatic reconciliation.
+  outside world with no automatic reconciliation. Moving the call to `after_commit` fixes *this specific*
+  rollback-consistency problem — it does not, by itself, make the side effect durable or exactly-once (see
+  next paragraph).
+- **`after_commit` is not a delivery guarantee.** It only separates the side effect from rollback; it adds
+  no durability of its own. The Rails guide itself notes that "during `after_commit` the data was already
+  persisted to the database, and thus any exception won't roll anything back anymore" — which cuts both
+  ways: an exception *inside* the `after_commit` callback, or the process crashing between the commit and
+  the callback running, means the row exists but the external effect silently never fires, with nothing to
+  retry it. For delivery-critical effects (payments, required emails, webhooks), `after_commit` alone is
+  not proof of safety.
 - **What to inspect:** Any `transaction do` block or `after_save`/`after_create`/`after_update` callback
   that calls an external API, sends mail, or performs a non-DB write. It belongs in `after_commit` instead
   — the guide notes these callbacks exist because models "need to interact with external systems that are
-  not part of the database transaction."
-- **What proves safety:** The side effect is in `after_commit` (or triggered after the transaction block
-  exits successfully), and a test that forces a rollback mid-transaction and asserts the external effect
-  did *not* fire.
+  not part of the database transaction." For anything delivery-critical, check further: is the effect
+  itself durable (a durable outbox row, or a queued job written via `enqueue_after_transaction_commit` —
+  see [§8](#8-background-job-enqueue-timing-retries-and-argument-durability) — rather than a synchronous
+  call inside the callback), does it have a retry policy, and is it idempotent/deduplicated so a retry
+  can't double-fire it?
+- **What proves safety:** For rollback-consistency: the side effect is in `after_commit` (or triggered
+  after the transaction block exits successfully), and a test that forces a rollback mid-transaction and
+  asserts the external effect did *not* fire. That test proves rollback-safety only — treat it as
+  incomplete evidence, not a full verdict. For delivery-critical effects, additionally require evidence of
+  a durable outbox or durable post-commit job, a retry policy, and an idempotency/deduplication key —
+  without that evidence, disclose durability as unverified rather than asserting the effect is safe.
 - **Statically lintable:** No cop in this project or RuboCop Rails flags "external call inside
   transaction" generically — it requires knowing which calls are external, which isn't visible to AST-only
-  analysis. RuboCop Rails does statically catch the related-but-distinct `return`/`break`/`throw`-inside-
-  `transaction` non-local-exit hazard as `Rails/TransactionExitStatement`.
+  analysis. RuboCop Rails ships the related-but-distinct `Rails/TransactionExitStatement` for
+  `return`/`break`/`throw` inside a transaction, but only when it's actually enabled and applicable — see
+  [§10](#10-schema-constraints-and-migrationdeploy-safety) for why presence of the gem isn't enough.
 
 ## 7. Nested-resource / tenant ownership scoping
 
@@ -255,12 +272,18 @@ inventory. Not a benchmark-report finding.
   — is skipping validation intentional and safe here?
 - **What proves safety:** The schema (`db/schema.rb`) shows a matching unique index, or a test that races
   two concurrent inserts and asserts the database (not just the validation) rejects the duplicate.
-- **Statically lintable:** Yes, largely. RuboCop Rails ships `Rails/UniqueValidationWithoutIndex` (flags a
-  `uniqueness:` validation with no matching schema index), `Rails/SkipsModelValidations` (flags
-  `update_column`, `update_attribute`, `update_all`, `save(validate: false)`, and similar), and
-  `Rails/SaveBang` (flags `save`/`update`/`create` calls whose failure return value is silently ignored).
-  Run standard-rails/rubocop-rails (Layer 2) before treating this as a manual-review-only gap — see the
-  [RuboCop Rails cop inventory](https://docs.rubocop.org/rubocop-rails/latest/cops_rails.html).
+- **Statically lintable:** Partial, and only when the specific cop is actually enabled for the target —
+  presence of `rubocop-rails`/`standard-rails` in the `Gemfile` does not by itself mean these are active.
+  `rubocop-rails` ships `Rails/UniqueValidationWithoutIndex` (flags a `uniqueness:` validation with no
+  matching schema index; needs `db/schema.rb` to exist, and only scans `app/models/**/*.rb` by default),
+  `Rails/SkipsModelValidations` (flags `update_column`, `update_attribute`, `update_all`,
+  `save(validate: false)`, and similar), and `Rails/SaveBang` (flags `save`/`update`/`create` calls whose
+  failure return value is silently ignored) — but the `standard-rails` baseline this project targets
+  explicitly disables both `Rails/SaveBang` and `Rails/SkipsModelValidations` (`Enabled: false`). Before
+  crediting either in a review verdict, check the target's *effective* `.rubocop.yml`/`.standard.yml`, not
+  just which gems are installed — see [SKILL.md](../SKILL.md)'s Layer 2 for how. If a cop is disabled or
+  its Rails-version precondition isn't met, report the gap as unverified, not as passing coverage — see
+  the [RuboCop Rails cop inventory](https://docs.rubocop.org/rubocop-rails/latest/cops_rails.html).
 
 ## 11. Secrets, production dependency groups, Docker/deployment completeness
 

@@ -9,22 +9,27 @@ This project treats that as a design signal, not a claim that linting proves cor
 Primary references: [Rails security guide](https://guides.rubyonrails.org/security.html), [Rails Active Record transactions](https://api.rubyonrails.org/classes/ActiveRecord/Transactions/ClassMethods.html), [StandardRB](https://github.com/standardrb/standard), [lint_roller](https://github.com/standardrb/lint_roller), [RuboCop](https://docs.rubocop.org/rubocop/), [RuboCop Rails](https://docs.rubocop.org/rubocop-rails/), and [Brakeman warning types](https://brakemanscanner.org/docs/warning_types/).
 
 These six custom AST cops are the reliable default this gem ships, not the total catalog of Rails slop.
-They deliberately don't grow to cover everything `rubocop-rails` and Brakeman already check — see
+They deliberately don't grow to cover everything `rubocop-rails` and Brakeman *can* check when their cops
+are actually enabled for a target — see
 [README.md](../README.md#scope-six-cops-are-the-reliable-default-not-the-catalog) for why the cop count
-stays intentionally small (`rubocop-rails` already ships, among others, `Rails/UniqueValidationWithoutIndex`,
-`Rails/TransactionExitStatement`, `Rails/SkipsModelValidations`, and `Rails/SaveBang`; Brakeman covers its
-own [documented security categories](https://brakemanscanner.org/docs/warning_types/)).
+stays intentionally small (`rubocop-rails` ships, among others, `Rails/UniqueValidationWithoutIndex`,
+`Rails/TransactionExitStatement`, `Rails/SkipsModelValidations`, and `Rails/SaveBang`, but the
+`standard-rails` baseline this project targets disables `Rails/SaveBang` and `Rails/SkipsModelValidations`
+outright, and `Rails/TransactionExitStatement` no-ops on Rails >= 7.2 regardless of config — presence of
+the gem is not the same as active coverage; Brakeman covers its own [documented security
+categories](https://brakemanscanner.org/docs/warning_types/)).
 
-## Layers 2 and 3: the skill's existing-tool orchestration and semantic review
+## Layers 2 and 3: the skill's existing-tool coverage and semantic review
 
 The [`install-anti-slop-ror` skill](../skills/install-anti-slop-ror/SKILL.md) adds two layers the cops
-themselves can't provide:
+themselves can't provide, both run read-only in the skill's review/audit mode — reviewing a diff never
+requires installing Layer 1 first:
 
 | Layer | What it does | Proves |
 | --- | --- | --- |
-| 1. Custom cops | Runs the six AST cops above via StandardRB | Six narrow, high-confidence syntactic anti-patterns |
-| 2. Existing-tool orchestration | Discovers and runs the target repo's own StandardRB/`rubocop-rails`, Brakeman, and tests; reports gaps instead of assuming untested tools passed | Whatever coverage the target repo already has, honestly reported |
-| 3. Semantic review | Reads [`references/rails-review.md`](../skills/install-anti-slop-ror/references/rails-review.md) and inspects the diff for boundaries no linter can prove | Evidence-backed, diff-specific review verdict with disclosed gaps |
+| 1. Custom cops (install mode only) | Runs the six AST cops above via StandardRB | Six narrow, high-confidence syntactic anti-patterns |
+| 2. Existing-tool coverage (review mode, read-only) | Discovers and runs the target repo's own StandardRB/`rubocop-rails`, Brakeman, and tests as already configured; checks whether specific named cops are actually enabled and applicable before crediting them, rather than assuming a gem's presence means coverage | Whatever coverage the target repo *actually* has active, honestly reported |
+| 3. Semantic review (review mode) | Reads [`references/rails-review.md`](../skills/install-anti-slop-ror/references/rails-review.md) and inspects the diff for boundaries no linter can prove | Evidence-backed, diff-specific review verdict with disclosed gaps |
 
 Layer 3's reference is grounded in a second, distinct piece of research from the one above: the [LLM
 Coding Benchmark's success report](https://github.com/akitaonrails/llm-coding-benchmark/blob/master/docs/success_report.md),

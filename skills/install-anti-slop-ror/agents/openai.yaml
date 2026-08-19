@@ -1,4 +1,4 @@
 interface:
   display_name: "Anti-Slop Rails Review"
-  short_description: "Install and review Rails code for AI-agent slop"
-  default_prompt: "Use $install-anti-slop-ror to install the anti-slop cops and review this Rails PR for slop the linter can't catch."
+  short_description: "Review Rails diffs for AI slop, or install the cops"
+  default_prompt: "Use $install-anti-slop-ror to review this Rails PR for AI-agent slop, or to install the anti-slop cops in this repo — reviewing doesn't require installing first."

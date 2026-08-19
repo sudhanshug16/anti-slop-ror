@@ -21,27 +21,35 @@ There is **no autocorrect**: each finding needs a human decision.
 
 These six custom AST cops are the reliable default for this gem — not the total catalog of Rails slop.
 They stay this small on purpose: `rubocop-rails` and Brakeman already cover a large, well-maintained set
-of Rails-specific hazards, and duplicating their checks here would just add noisy, worse-maintained
-copies for no gain. Notably, `rubocop-rails` already ships `Rails/UniqueValidationWithoutIndex`
-(uniqueness validations without a matching DB index), `Rails/TransactionExitStatement` (`return`/`break`/
-`throw` inside a transaction), `Rails/SkipsModelValidations` (`update_column`, `update_attribute`,
-`update_all`, and similar), and `Rails/SaveBang` (unchecked `save`/`update`/`create` return values), among
-others — see the [RuboCop Rails cop inventory](https://docs.rubocop.org/rubocop-rails/latest/cops_rails.html).
-Brakeman covers its own documented security categories (SQL injection, XSS, mass assignment, unsafe
-redirects, CSRF, and more — see [Brakeman warning types](https://brakemanscanner.org/docs/warning_types/)).
-This project's cops fill gaps neither tool checks (request-driven dynamic dispatch, silent rescue,
-unbounded strong parameters) rather than re-implementing what already exists.
+of Rails-specific hazards *when their cops are actually enabled*, and duplicating those checks here would
+just add noisy, worse-maintained copies for no gain. Notably, `rubocop-rails` ships cops in this space —
+`Rails/UniqueValidationWithoutIndex` (uniqueness validations without a matching DB index),
+`Rails/TransactionExitStatement` (`return`/`break`/`throw` inside a transaction), `Rails/SkipsModelValidations`
+(`update_column`, `update_attribute`, `update_all`, and similar), and `Rails/SaveBang` (unchecked
+`save`/`update`/`create` return values), among others — see the [RuboCop Rails cop
+inventory](https://docs.rubocop.org/rubocop-rails/latest/cops_rails.html). That is not blanket coverage,
+though: the `standard-rails` baseline this project targets disables `Rails/SaveBang` and
+`Rails/SkipsModelValidations` outright, and `Rails/TransactionExitStatement` is a no-op on Rails >= 7.2
+regardless of config. Whether any of these are actually active for a given target depends on its effective
+config and Rails version — see [Limitations](#limitations) below and the skill's review mode, which checks
+this rather than assuming a gem being present means the cop fired. Brakeman covers its own documented
+security categories (SQL injection, XSS, mass assignment, unsafe redirects, CSRF, and more — see [Brakeman
+warning types](https://brakemanscanner.org/docs/warning_types/)). This project's cops fill gaps neither
+tool checks (request-driven dynamic dispatch, silent rescue, unbounded strong parameters) rather than
+re-implementing what already exists.
 
 Because most high-value Rails failures are semantic or runtime, not syntactic, the
-[`install-anti-slop-ror` skill](skills/install-anti-slop-ror/SKILL.md) adds two more layers on top of
-these cops: orchestrating the target repo's own existing safety tools, and a semantic review pass for
-what no AST cop can prove.
+[`install-anti-slop-ror` skill](skills/install-anti-slop-ror/SKILL.md) also runs two more layers:
+orchestrating the target repo's own existing safety tools, and a semantic review pass for what no AST cop
+can prove. Reviewing a diff does **not** require installing these cops first: the skill's review mode runs
+read-only against whatever the target repo already has and reports any of these six cops (or other
+tooling) that aren't installed as a gap in the verdict, rather than installing them.
 
 | Layer | What it does | Proves |
 | --- | --- | --- |
-| 1. Custom cops | Runs these six AST cops via StandardRB | Six narrow, high-confidence syntactic anti-patterns |
-| 2. Existing-tool orchestration | Discovers and runs the target repo's own StandardRB/`rubocop-rails`, Brakeman, and tests; reports any that are missing rather than assuming they passed | Whatever coverage the target repo already has, honestly reported |
-| 3. Semantic review | Reads [`references/rails-review.md`](skills/install-anti-slop-ror/references/rails-review.md) and inspects the diff for boundaries no linter can prove (state loss, stub drift, transaction/job timing, cache keys, scoping, guardrail weakening, and more) | Evidence-backed, diff-specific review verdict with disclosed gaps |
+| 1. Custom cops (install mode) | Runs these six AST cops via StandardRB | Six narrow, high-confidence syntactic anti-patterns |
+| 2. Existing-tool coverage (review mode, read-only) | Discovers and runs the target repo's own StandardRB/`rubocop-rails`, Brakeman, and tests as already configured; checks whether specific named cops are actually enabled and applicable rather than assuming a gem's presence means coverage; reports anything missing, disabled, or unverified | Whatever coverage the target repo *actually* has active, honestly reported |
+| 3. Semantic review (review mode) | Reads [`references/rails-review.md`](skills/install-anti-slop-ror/references/rails-review.md) and inspects the diff for boundaries no linter can prove (state loss, stub drift, transaction/job timing, cache keys, scoping, guardrail weakening, and more) | Evidence-backed, diff-specific review verdict with disclosed gaps |
 
 ## Limitations
 
