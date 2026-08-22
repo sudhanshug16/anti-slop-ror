@@ -18,6 +18,7 @@ RSpec.describe "plugin registration" do
   it "loads the lint roller plugin" do
     plugin = AntiSlopRor::Plugin.new
     expect(plugin).to be_a(LintRoller::Plugin)
+    expect(plugin.about.homepage).to eq("https://github.com/sudhanshug16/anti-slop-ror")
     expect(plugin.rules(nil).value).to end_with("config/default.yml")
   end
 end

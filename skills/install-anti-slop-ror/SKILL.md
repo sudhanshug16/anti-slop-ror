@@ -22,16 +22,21 @@ The six cops are AST-local, no-autocorrect, and catch narrow, high-confidence an
 rescue, request-driven dynamic dispatch, unsafe request-controlled redirects, unbounded strong
 parameters, interpolated SQL, and swallowed `StatementInvalid` inside a transaction.
 
-1. Vendor or add the gem:
-   - Vendor: `ruby scripts/install.rb TARGET` from this repo (refuses to overwrite an existing
-     `TARGET/tools/anti_slop_ror`; pass `--force` only to intentionally replace that snapshot).
-   - Gem: add `gem "anti-slop-ror"` to the target's Gemfile.
-2. Add the printed `.standard.yml` plugin block (the installer prints the exact block; do not
-   hand-write it).
-3. Run the blocking check: `bundle exec standardrb --raise-cop-error`.
-4. Every finding needs a human decision — there is no autocorrect. Do not suppress a finding without
-   understanding why the cop fired (see `docs/rule-design.md` in this repo for each cop's intentional
-   boundaries).
+1. Confirm the target already uses StandardRB. If it does not, report that prerequisite; do not add or
+   change dependencies unless the user requested that broader setup.
+2. Resolve `<skill-dir>` as the directory containing this `SKILL.md`, then run
+   `ruby <skill-dir>/scripts/install.rb TARGET`. This vendors the bundled source without requiring the
+   anti-slop-ror repository, a published gem, or network access. It refuses to overwrite an existing
+   `TARGET/tools/anti_slop_ror`; pass `--force` only when the user explicitly intends to replace that
+   snapshot.
+3. Add the exact `.standard.yml` plugin block printed by the installer; do not hand-write a different
+   require path.
+4. Run the blocking check: `bundle exec standardrb --raise-cop-error`.
+5. Every finding needs a human decision — there is no autocorrect. Do not suppress a finding without
+   understanding why the cop fired; inspect the installed cop and the target code around the offense.
+
+Gem publication is optional and is not part of the default install path. Use a gem-based installation
+only when the user explicitly requests it and the requested gem/version is verified available.
 
 Installing does not substitute for a review: it only adds these six cops to the target's own lint run.
 If the user also wants their diff reviewed, continue into review/audit mode below.
@@ -105,10 +110,9 @@ For every review:
 
 ## Notes
 
-- The six cops are the reliable default, not a full Rails-slop catalog — see this repo's `README.md` and
-  `docs/research.md` for why the cop count stays small instead of duplicating checks `rubocop-rails` and
-  Brakeman *can* provide when their cops are actually enabled for the target (see Layer 2 above — presence
-  of the gem is not the same as active coverage).
+- The six cops are the reliable default, not a full Rails-slop catalog. They do not duplicate checks
+  `rubocop-rails` and Brakeman can provide when those checks are actually enabled for the target (see
+  Layer 2 above — presence of a gem is not the same as active coverage).
 - Layer 3's categories are labeled in `rails-review.md` as either evidenced directly by the [LLM Coding
   Benchmark's success report](https://github.com/akitaonrails/llm-coding-benchmark/blob/master/docs/success_report.md)
   or as general Rails hazards from framework/tooling documentation — that benchmark is one report on one

@@ -15,9 +15,20 @@ RSpec.describe RuboCop::Cop::AntiSlop::NoRequestDrivenDynamicDispatch do
     RUBY
   end
 
+  it "flags request-driven constantization" do
+    expect_offense(<<~RUBY)
+      params[:class_name].constantize
+      ^^^^^^^^^^^^^^^^^^^ AntiSlop/NoRequestDrivenDynamicDispatch: Do not dispatch a method or constant directly from request parameters.
+      request.query_parameters[:class_name]&.safe_constantize
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ AntiSlop/NoRequestDrivenDynamicDispatch: Do not dispatch a method or constant directly from request parameters.
+    RUBY
+  end
+
   it "allows literals and an explicit mapping" do
     expect_no_offenses("handler.public_send(:call)")
     expect_no_offenses("handler.public_send(HANDLERS.fetch(params[:kind]))")
+    expect_no_offenses("'User'.constantize")
+    expect_no_offenses("CLASS_NAMES.fetch(params[:kind]).constantize")
   end
 
   it "recognizes request sources without treating arbitrary params methods as sources" do

@@ -4,7 +4,21 @@ Focused, no-autocorrect RuboCop cops for Rails code where a locally plausible ch
 
 ## Installation
 
-Gem users can add `gem "anti-slop-ror"` and configure StandardRB with `plugins: [anti-slop-ror]`. To vendor it, run `ruby scripts/install.rb /path/to/app`, add the exact printed `.standard.yml` block, and run `bundle exec standardrb --raise-cop-error`. Vendored installations are snapshots: rerun the installer to update them. The installer refuses to replace `tools/anti_slop_ror`; use `--force` only when intentionally replacing that snapshot.
+The supported default is the self-contained [`install-anti-slop-ror`](skills/install-anti-slop-ror/SKILL.md)
+skill. Its installer copies the bundled cops and config into a target without requiring this repository,
+a published gem, or a network connection:
+
+```sh
+ruby /path/to/install-anti-slop-ror/scripts/install.rb /path/to/rails-app
+```
+
+Add the exact `.standard.yml` block it prints, then run
+`bundle exec standardrb --raise-cop-error`. The target must already use StandardRB. Vendored installations
+are snapshots: rerun with `--force` only when intentionally replacing `tools/anti_slop_ror`. From this
+repository, `ruby scripts/install.rb /path/to/rails-app` remains a compatibility shortcut.
+
+RubyGems publication is optional and is not required for the skill workflow. The gemspec and packaged-gem
+smoke remain so a conventional Bundler distribution can be published later without changing the cops.
 
 | Cop | Rejects |
 | --- | --- |

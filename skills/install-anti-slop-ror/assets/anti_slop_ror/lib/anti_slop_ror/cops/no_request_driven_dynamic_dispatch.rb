@@ -7,7 +7,7 @@ module RuboCop
 
         def on_send(node)
           return unless DISPATCH.include?(node.method_name)
-          name = node.arguments.first
+          name = dispatch_name(node)
           return unless request_value?(name)
           return if closed_mapping_lookup?(name)
 
@@ -17,6 +17,12 @@ module RuboCop
         alias_method :on_csend, :on_send
 
         private
+
+        def dispatch_name(node)
+          return node.receiver if %i[constantize safe_constantize].include?(node.method_name)
+
+          node.arguments.first
+        end
 
         def closed_mapping_lookup?(node)
           node&.send_type? && %i[fetch []].include?(node.method_name) && node.receiver&.const_type?
